@@ -1,57 +1,39 @@
 import { createClient } from '@supabase/supabase-js'
 
-// Get environment variables with detailed validation
+// Get environment variables
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-// Validation function for environment variables
-const validateSupabaseConfig = () => {
-  if (!supabaseUrl) {
-    console.error('❌ Missing NEXT_PUBLIC_SUPABASE_URL environment variable')
-    console.error('Expected format: https://your-project.supabase.co')
-    return false
-  }
-
-  if (!supabaseAnonKey) {
-    console.error('❌ Missing NEXT_PUBLIC_SUPABASE_ANON_KEY environment variable')
-    console.error('Expected format: eyJ... (JWT token starting with eyJ)')
-    return false
-  }
-
-  // Validate URL format
-  if (!supabaseUrl.startsWith('https://') || !supabaseUrl.includes('.supabase.co')) {
-    console.error('❌ Invalid NEXT_PUBLIC_SUPABASE_URL format:', supabaseUrl)
-    console.error('Expected format: https://your-project.supabase.co')
-    return false
-  }
-
-  // Validate anon key format
-  if (!supabaseAnonKey.startsWith('eyJ')) {
-    console.error('❌ Invalid NEXT_PUBLIC_SUPABASE_ANON_KEY format')
-    console.error('Expected format: eyJ... (JWT token)')
-    return false
-  }
-
-  return true
+// Simple validation for Vercel compatibility
+const isValidConfig = () => {
+  return supabaseUrl && supabaseAnonKey && 
+         supabaseUrl.includes('supabase.co') && 
+         supabaseAnonKey.startsWith('eyJ')
 }
 
-// Create client only if environment variables are available and valid
-export const supabase = validateSupabaseConfig() 
-  ? createClient(supabaseUrl!, supabaseAnonKey!)
-  : null
+// Create client with minimal validation to avoid Vercel issues
+export const supabase = (() => {
+  if (!isValidConfig()) {
+    console.warn('⚠️ Supabase client: Environment variables not configured')
+    return null
+  }
 
-// Safe client creation for build time
+  try {
+    return createClient(supabaseUrl!, supabaseAnonKey!)
+  } catch (error) {
+    console.error('🚨 Failed to create Supabase client:', error)
+    return null
+  }
+})()
+
+// Safe client creation function
 export const createSupabaseClient = () => {
-  if (!validateSupabaseConfig()) {
+  if (!isValidConfig()) {
     if (process.env.NODE_ENV === 'production') {
-      throw new Error('supabaseUrl is required.')
+      throw new Error('Supabase environment variables are required in production')
     }
     return null
   }
-  
-  console.log('✅ Supabase client environment variables validated successfully')
-  console.log('📍 URL:', supabaseUrl)
-  console.log('🔑 Anon Key:', supabaseAnonKey!.substring(0, 20) + '...')
   
   return createClient(supabaseUrl!, supabaseAnonKey!)
 }
